@@ -1,1 +1,1337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Video Editor</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.4/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.4/Draggable.min.js"></script>
+     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.4/MotionPathPlugin.min.js"></script>
+    <style>
+        /* (Keep the styles from previous implementations) */
+          @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Rajdhani:wght@300;400;700&family=Audiowide&family=Exo+2:wght@200;400;700&family=Syncopate:wght@400;700&display=swap');
 
+        :root {
+            --primary-bg: #0a0e17;
+            --secondary-bg: #1a1f2e;
+            --accent-1: #00a8ff;
+            --accent-2: #ff00a8;
+            --text: #e0e0e0;
+            --font-main: 'Rajdhani', sans-serif;
+            --font-header: 'Orbitron', sans-serif;
+            --font-display: 'Audiowide', cursive;
+            --font-button: 'Exo 2', sans-serif;
+            --font-label: 'Syncopate', sans-serif;
+            --timeline-height: 150px;
+             --marker-color: #ffcc00;
+            --trim-handle-size: 8px;
+        }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: var(--font-main);
+            background: var(--primary-bg);
+            color: var(--text);
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        .editor {
+            display: grid;
+            grid-template-rows: auto 1fr auto;
+            height: 100vh;
+            gap: 0.5rem;
+            padding: 0.5rem;
+        }
+
+        /* Header */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5rem 1rem;
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .logo {
+            font-family: var(--font-header);
+            font-size: 1.5rem;
+            font-weight: bold;
+            background: linear-gradient(45deg, var(--accent-1), var(--accent-2));
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            text-shadow: 0 0 10px rgba(0, 168, 255, 0.5);
+        }
+
+        /* Main Content */
+        .main-content {
+            display: grid;
+            grid-template-columns: 200px 1fr 200px;
+            gap: 0.5rem;
+            height: 100%;
+        }
+
+        /* Sidebars */
+        .sidebar {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
+            padding: 0.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            overflow-y: auto;
+        }
+
+        .sidebar h3 {
+            font-family: var(--font-label);
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 0.5rem;
+        }
+
+        .asset-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 0.5rem;
+        }
+
+        .asset-container {
+            aspect-ratio: 16/9;
+            background: var(--secondary-bg);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+            overflow: hidden;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+
+        .asset-container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(45deg, var(--accent-1), var(--accent-2));
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        .asset-container:hover::before {
+            opacity: 0.3;
+        }
+
+        .asset-preview {
+            max-width: 100%;
+            max-height: 100%;
+            display: block;
+            pointer-events: none;
+            user-select: none;
+        }
+
+        .asset-upload-btn {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: transparent;
+            border: none;
+            font-size: 2rem;
+            cursor: pointer;
+            color: var(--text);
+
+            transition: all 0.3s ease;
+
+        }
+        .asset-upload-btn:hover{
+            color: var(--accent-1);
+        }
+
+        .asset-upload-input {
+            display: none;
+        }
+
+        /* Preview Area */
+        .preview {
+            background: var(--secondary-bg);
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        .preview-screen {
+            flex: 1;
+            background: #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .preview-controls {
+            padding: 0.5rem;
+            display: flex;
+            gap: 0.5rem;
+            justify-content: center;
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(5px);
+        }
+
+        .control-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: none;
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--text);
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+            font-family: var(--font-button);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .control-btn:hover {
+            background: var(--accent-1);
+            transform: scale(1.1);
+            box-shadow: 0 0 15px var(--accent-1);
+        }
+
+        .preview-scrub {
+            position: absolute;
+            left: 0;
+            bottom: 0;
+            width: 100%;
+            height: 5px;
+            background: rgba(255, 255, 255, 0.2);
+            cursor: pointer;
+            transition: background 0.3s ease;
+            overflow: hidden;
+        }
+
+        .preview-scrub:hover {
+            background: rgba(255, 255, 255, 0.4);
+        }
+
+        .scrub-handle {
+            position: absolute;
+            height: 100%;
+            width: 10px;
+            background: var(--accent-1);
+            top:0;
+            pointer-events: none;
+            border-radius: 5px;
+        }
+
+        /* Timeline */
+        .timeline {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
+            padding: 0.5rem;
+            display: grid;
+            grid-template-rows: auto 1fr auto;
+            gap: 0.5rem;
+            min-height: var(--timeline-height);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .timeline-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-family: var(--font-label);
+            padding-bottom: 0.5rem;
+        }
+
+        .timeline-controls h3{
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+
+        }
+        .timeline-controls .tools {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(24px, 1fr));
+            gap: 0.25rem;
+        }
+        .timeline-controls .tool-btn{
+            font-size: 0.6rem;
+        }
+
+        .timeline-tracks-container{
+            position: relative;
+            overflow-x: auto;
+        }
+         .timeline-tracks {
+            display: grid;
+            grid-template-rows: repeat(3, 1fr);
+             gap: 0.25rem;
+            position: relative;
+            min-width: fit-content;
+        }
+
+        .track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            height: 40px;
+            min-width: 100%;
+            position: relative;
+            border: 2px dashed transparent;
+            transition: border-color 0.3s ease;
+            overflow: hidden;
+        }
+        .track.drag-over {
+            border-color: var(--accent-1);
+        }
+         .track::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            pointer-events: none;
+        }
+
+      .clip {
+            position: absolute;
+            height: 100%;
+            background: linear-gradient(45deg, var(--accent-1), var(--accent-2));
+            border-radius: 6px;
+            cursor: move;
+             display: flex;
+            align-items: center;
+           overflow: visible;
+            box-sizing: border-box;
+        }
+
+       .clip::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            pointer-events: none;
+        }
+    .trim-handle {
+           position: absolute;
+           top: 50%;
+          width: var(--trim-handle-size);
+           height: 100%;
+          background: rgba(255, 255, 255, 0.3);
+           cursor: ew-resize;
+           transform: translateY(-50%);
+             border-radius: 5px;
+          pointer-events: auto;
+
+         }
+        .trim-handle.left{
+            left: 0;
+
+        }
+       .trim-handle.right {
+           right: 0;
+         }
+
+        .time-label-container {
+            position: absolute;
+            top: 100%;
+            width: 100%;
+            left: 0;
+            display: flex;
+            justify-content: space-between;
+            pointer-events: none;
+        }
+
+        .time-label {
+            position: absolute;
+            font-size: 0.7rem;
+            color: var(--text);
+            font-family: var(--font-label);
+            top: 0.3rem;
+            transform: translateX(-50%);
+        }
+
+        /* Tools */
+        .tools {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(30px, 1fr));
+            gap: 0.25rem;
+        }
+
+        .tool-btn {
+            aspect-ratio: 1;
+            border: none;
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--text);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+            font-family: var(--font-button);
+            font-size: 0.8rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .tool-btn:hover {
+            background: var(--accent-1);
+            transform: scale(1.1);
+            box-shadow: 0 0 15px var(--accent-1);
+        }
+
+        /* Responsive Design */
+        @media (max-width: 1024px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+
+            .sidebar {
+                display: none;
+            }
+
+            .sidebar.active {
+                display: flex;
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                z-index: 100;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .editor {
+                padding: 0.25rem;
+            }
+
+            .timeline {
+                min-height: 120px;
+            }
+        }
+
+        /* Animations */
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(0, 168, 255, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(0, 168, 255, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(0, 168, 255, 0); }
+        }
+
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+
+        /* Waveform */
+        .waveform {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 40px;
+            display: flex;
+            align-items: flex-end;
+            padding: 2px;
+        }
+
+        .waveform-bar {
+            flex: 1;
+            background: rgba(255, 255, 255, 0.3);
+            margin: 0 1px;
+            transition: height 0.2s ease;
+        }
+
+        /* SVG Icons */
+        .icon {
+            width: 24px;
+            height: 24px;
+            fill: none;
+            stroke: currentColor;
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+         /* Markers style */
+    .marker {
+        position: absolute;
+        top: -5px;
+        width: 2px;
+        height: 150%;
+       background-color: var(--marker-color);
+        pointer-events: none;
+         cursor: move;
+
+    }
+
+    .marker::before {
+        content: '';
+        position: absolute;
+        left: -3px;
+        top: -8px;
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background-color: var(--marker-color);
+        }
+    .marker-label {
+        position: absolute;
+        top: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        color: var(--text);
+        font-size: 0.6rem;
+         font-family: var(--font-label);
+          white-space: nowrap;
+        }
+    </style>
+</head>
+<body>
+<div class="editor">
+    <header class="header">
+        <div class="logo">SHAMASE EDIT</div>
+        <div class="tools">
+            <button class="tool-btn" title="Add Track">
+                <svg class="icon" viewBox="0 0 24 24">
+                    <line x1="12" y1="5" x2="12" y2="19" />
+                    <line x1="5" y1="12" x2="19" y2="12" />
+                </svg>
+            </button>
+            <button class="tool-btn" title="Save Project">
+                 <svg class="icon" viewBox="0 0 24 24">
+                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2z" />
+                    <polyline points="17 2 17 8 22 8" />
+                    <line x1="15" y1="15" x2="19" y2="15" />
+                    <line x1="15" y1="11" x2="19" y2="11" />
+                </svg>
+            </button>
+            <button class="tool-btn" title="Export">
+                <svg class="icon" viewBox="0 0 24 24">
+                    <path d="M4 11V4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v7" />
+                    <polyline points="10 15 14 19 18 15" />
+                    <line x1="14" y1="10" x2="14" y2="19" />
+                </svg>
+            </button>
+        </div>
+    </header>
+
+    <main class="main-content">
+        <aside class="sidebar">
+            <h3>Media Library</h3>
+            <div class="asset-grid" id="asset-grid">
+
+                <!-- Asset containers are added here dynamically -->
+                <div class="asset-container">
+                    <button class="asset-upload-btn"  aria-label="Upload media">
+                        +
+                    </button>
+                    <input type="file" class="asset-upload-input" accept="video/*, image/*" >
+                </div>
+
+                <div class="asset-container">
+                    <button class="asset-upload-btn"  aria-label="Upload media">
+                        +
+                    </button>
+                    <input type="file" class="asset-upload-input" accept="video/*, image/*" >
+                </div>
+                <div class="asset-container">
+                    <button class="asset-upload-btn"  aria-label="Upload media">
+                        +
+                    </button>
+                    <input type="file" class="asset-upload-input" accept="video/*, image/*" >
+                </div>
+                <div class="asset-container">
+                    <button class="asset-upload-btn"  aria-label="Upload media">
+                        +
+                    </button>
+                    <input type="file" class="asset-upload-input" accept="video/*, image/*" >
+                </div>
+                <div class="asset-container">
+                    <button class="asset-upload-btn"  aria-label="Upload media">
+                        +
+                    </button>
+                    <input type="file" class="asset-upload-input" accept="video/*, image/*" >
+                </div>
+                <div class="asset-container">
+                    <button class="asset-upload-btn"  aria-label="Upload media">
+                        +
+                    </button>
+                    <input type="file" class="asset-upload-input" accept="video/*, image/*" >
+                </div>
+            </div>
+        </aside>
+
+        <div class="preview">
+            <div class="preview-screen">
+                <video id="preview-video" style="max-width: 100%; max-height: 100%;">
+                    Your browser does not support the video tag.
+                </video>
+                <div class="waveform" id="waveform"></div>
+                <div class="preview-scrub">
+                    <div class="scrub-handle" id="scrubHandle"></div>
+                </div>
+            </div>
+            <div class="preview-controls">
+                 <button class="control-btn" title="Previous Frame" aria-label="Previous Frame">
+                        <svg class="icon" viewBox="0 0 24 24">
+                            <polygon points="19 20 9 12 19 4 19 20" />
+                            <line x1="5" y1="19" x2="5" y2="5" />
+                        </svg>
+                    </button>
+                <button class="control-btn" id="playPauseBtn" title="Play/Pause" aria-label="Play/Pause">
+                    <svg class="icon" viewBox="0 0 24 24">
+                        <polygon points="5 3 19 12 5 21 5 3" />
+                    </svg>
+                </button>
+                <button class="control-btn" title="Next Frame" aria-label="Next Frame">
+                    <svg class="icon" viewBox="0 0 24 24">
+                        <polygon points="5 4 15 12 5 20 5 4" />
+                        <line x1="19" y1="5" x2="19" y2="19" />
+                    </svg>
+                </button>
+                <button class="control-btn" title="Loop" aria-label="Loop">
+                     <svg class="icon" viewBox="0 0 24 24">
+                            <polyline points="17 1 21 5 17 9" />
+                            <path d="M3 11V9a4 4 0 0 1 4-4h14" />
+                            <polyline points="7 23 3 19 7 15" />
+                            <path d="M21 13v2a4 4 0 0 1-4 4H3" />
+                        </svg>
+                </button>
+                  <button class="control-btn" title="Fullscreen" aria-label="Fullscreen">
+                      <svg class="icon" viewBox="0 0 24 24">
+                        <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
+                    </svg>
+                    </button>
+            </div>
+        </div>
+
+        <aside class="sidebar">
+            <h3>Effects</h3>
+            <div class="tools">
+                  <button class="tool-btn" title="Color Filters" aria-label="Color Filters">
+                     <svg class="icon" viewBox="0 0 24 24">
+                        <path d="M12 21c-5.2 0-9.4-3.8-10.2-9h2c.7 4.6 4.5 8 9.2 8 4.7 0 8.5-3.4 9.2-8h2c-.8 5.2-5 9-10.2 9z"/>
+                        <path d="M12 3c5.2 0 9.4 3.8 10.2 9h-2c-.7-4.6-4.5-8-9.2-8-4.7 0-8.5 3.4-9.2 8h-2c.8-5.2 5-9 10.2-9z"/>
+                      </svg>
+                </button>
+                  <button class="tool-btn" title="Transitions" aria-label="Transitions">
+                    <svg class="icon" viewBox="0 0 24 24">
+                      <path d="M14 2l6 6-6 6"/>
+                      <path d="M10 10l-6 6 6 6"/>
+                    </svg>
+                </button>
+                  <button class="tool-btn" title="3D Effects" aria-label="3D Effects">
+                    <svg class="icon" viewBox="0 0 24 24">
+                     <path d="M12 2l8 4.6V14L12 19.6 4 14V6.6z"/>
+                        <path d="M12 14V21"/>
+                        <path d="M12 2v8"/>
+                    </svg>
+                </button>
+                 <button class="tool-btn" title="Blur" aria-label="Blur">
+                    <svg class="icon" viewBox="0 0 24 24">
+                        <circle cx="12" cy="12" r="10"/>
+                        <circle cx="12" cy="12" r="6" fill="transparent" stroke-dasharray="3"/>
+                       <circle cx="12" cy="12" r="2"/>
+                    </svg>
+                 </button>
+            </div>
+            <h3>Audio</h3>
+             <div class="tools">
+                <button class="tool-btn" title="Fade In" aria-label="Fade In">
+                    <svg class="icon" viewBox="0 0 24 24">
+                        <path d="M2 20l8-8-8-8" />
+                         <line x1="22" y1="20" x2="10" y2="20" />
+                         <line x1="22" y1="4" x2="10" y2="4" />
+                     </svg>
+                 </button>
+                  <button class="tool-btn" title="Fade Out" aria-label="Fade Out">
+                        <svg class="icon" viewBox="0 0 24 24">
+                            <path d="M22 20l-8-8 8-8" />
+                            <line x1="2" y1="20" x2="14" y2="20" />
+                             <line x1="2" y1="4" x2="14" y2="4" />
+                         </svg>
+                  </button>
+                  <button class="tool-btn" title="Equalizer" aria-label="Equalizer">
+                    <svg class="icon" viewBox="0 0 24 24">
+                       <rect x="4" y="4" width="2" height="16" />
+                        <rect x="10" y="9" width="2" height="11" />
+                        <rect x="16" y="1" width="2" height="19" />
+                        <rect x="20" y="6" width="2" height="14" />
+                     </svg>
+                  </button>
+                   <button class="tool-btn" title="Voice Over" aria-label="Voice Over">
+                      <svg class="icon" viewBox="0 0 24 24">
+                        <path d="M12 2a8 8 0 0 0-8 8v9a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-9a8 8 0 0 0-8-8z"/>
+                        <circle cx="12" cy="11" r="3" />
+                      </svg>
+                  </button>
+            </div>
+        </aside>
+    </main>
+
+    <div class="timeline">
+        <div class="timeline-controls">
+            <h3>Timeline</h3>
+            <div class="tools">
+                <!-- Timeline Zoom -->
+                <button class="tool-btn" title="Zoom In" id="zoomInBtn">
+                    <svg class="icon" viewBox="0 0 24 24">
+                        <circle cx="11" cy="11" r="8" />
+                        <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                        <line x1="11" y1="8" x2="11" y2="14" />
+                        <line x1="8" y1="11" x2="14" y2="11" />
+                    </svg>
+                </button>
+                <button class="tool-btn" title="Zoom Out" id="zoomOutBtn">
+                    <svg class="icon" viewBox="0 0 24 24">
+                        <circle cx="11" cy="11" r="8" />
+                        <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                        <line x1="8" y1="11" x2="14" y2="11" />
+                    </svg>
+                </button>
+
+            </div>
+        </div>
+        <div class="timeline-tracks-container">
+            <div class="timeline-tracks" id="timeline-tracks">
+              <div class="track">
+                  <!-- Sample Clip here-->
+                    <div class="clip" style="left: 10%; width: 20%;" >
+                           <div class="trim-handle left"></div>
+                           <div class="trim-handle right"></div>
+                     </div>
+
+                </div>
+                <div class="track">
+                       <div class="clip" style="left: 30%; width: 25%;">
+                           <div class="trim-handle left"></div>
+                           <div class="trim-handle right"></div>
+                        </div>
+                  </div>
+                <div class="track">
+                     <div class="clip" style="left: 15%; width: 35%;">
+                             <div class="trim-handle left"></div>
+                             <div class="trim-handle right"></div>
+                     </div>
+                </div>
+            </div>
+            <div class="time-label-container" id="time-label-container"></div>
+        </div>
+        <div class="timeline-controls">
+            <div class="tools">
+                <button class="tool-btn" title="Split Clip">
+                     <svg class="icon" viewBox="0 0 24 24">
+                        <circle cx="6" cy="6" r="3" />
+                        <circle cx="6" cy="18" r="3" />
+                        <line x1="20" y1="4" x2="8.12" y2="15.88" />
+                        <line x1="14.47" y1="14.48" x2="20" y2="20" />
+                        <line x1="8.12" y1="8.12" x2="12" y2="12" />
+                    </svg>
+                </button>
+                <button class="tool-btn" title="Remove Track">
+                     <svg class="icon" viewBox="0 0 24 24">
+                        <line x1="5" y1="12" x2="19" y2="12" />
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+
+         // ------  Physics-Based Animation Constants  -----
+        const  elasticEase = "elastic.out(1, 0.3)";       
+        const  backEase = "back.out(1.7)";
+
+        // ------ Timeline Zoom Functionality -----
+         const timelineTracksContainer = document.querySelector('.timeline-tracks-container');
+          let zoomLevel = 1; // start at no zoom
+        const zoomSpeed = 0.15; // Adjust zoom speed as needed
+        const minZoom = 0.5;
+        const maxZoom = 3;
+        const timeLabelContainer = document.getElementById('time-label-container');
+
+
+         function applyZoom() {
+                 gsap.set(timelineTracksContainer, { scaleX: zoomLevel });
+               timeLabelContainer.style.transform = `scaleX(${1 / zoomLevel})`;
+              updateTimelineLabels();
+          }
+
+
+        document.getElementById('zoomInBtn').addEventListener('click', () => {
+             zoomLevel = Math.min(maxZoom, zoomLevel + zoomSpeed);
+            applyZoom();
+         });
+
+          document.getElementById('zoomOutBtn').addEventListener('click', () => {
+            zoomLevel = Math.max(minZoom, zoomLevel - zoomSpeed);
+            applyZoom();
+         });
+
+         // ----- Clip Trimming -----
+          function initClipTrimming(clip) {
+           const leftHandle = clip.querySelector('.trim-handle.left');
+           const rightHandle = clip.querySelector('.trim-handle.right');
+              if (leftHandle){
+                Draggable.create(leftHandle, {
+                    type: "x",
+                   bounds: {
+                        minX: clip.offsetLeft -  clip.offsetWidth ,
+                        maxX: clip.offsetLeft + clip.offsetWidth
+                   },
+                   onDrag: function() {
+                       const newWidth = clip.offsetWidth + (clip.offsetLeft - leftHandle.offsetLeft ) ;
+
+                      gsap.set(clip, {
+                          x: leftHandle.offsetLeft -  clip.offsetLeft,
+                        width: newWidth,
+                        });
+                   }
+
+                 });
+             }
+
+
+            if (rightHandle){
+                    Draggable.create(rightHandle, {
+                        type: "x",
+                       bounds: {
+                            minX: clip.offsetLeft,
+                            maxX: clip.offsetLeft + clip.offsetWidth * 2
+                       },
+                        onDrag: function() {
+                              const newWidth = rightHandle.offsetLeft - clip.offsetLeft;
+                                gsap.set(clip, {
+                                   width: newWidth,
+                                });
+                            }
+
+                     });
+                }
+         }
+
+          // Initialize GSAP Draggable for clips
+        function initClipDragging(clip){
+             Draggable.create(clip, {
+                type: "x",
+                 bounds: clip.parentElement,
+                inertia: true,
+               snap: {
+                    x: function(endValue) {
+                        return Math.round(endValue / 10) * 10;
+                    }
+                 },
+                 onDragStart: function() {
+                    gsap.to(this.target, {
+                         scale: 1.05,
+                         boxShadow: "0 5px 15px rgba(0,168,255,0.3)",
+                         duration: 0.2,
+                       ease: elasticEase
+                     });
+                },
+                onDragEnd: function() {
+                      gsap.to(this.target, {
+                        scale: 1,
+                        boxShadow: "none",
+                         duration: 0.2,
+                         ease: backEase
+                    });
+                 }
+             });
+        }
+        document.querySelectorAll('.clip').forEach(clip => {
+             initClipTrimming(clip);
+               initClipDragging(clip);
+         });
+
+        // Play/Pause functionality
+        const playPauseBtn = document.getElementById('playPauseBtn');
+        const video = document.getElementById('preview-video');
+        let isScrubbing = false;
+        const scrubBar = document.querySelector('.preview-scrub');
+        const scrubHandle = document.getElementById('scrubHandle');
+        let scrubAnim;
+
+        playPauseBtn.addEventListener('click', () => {
+            if (video.paused) {
+                video.play();
+                if (isScrubbing) {
+                    scrubAnim.play();
+                }
+                playPauseBtn.innerHTML = '<svg class="icon" viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16" /><rect x="14" y="4" width="4" height="16" /></svg>';
+            } else {
+                video.pause();
+                if (isScrubbing) {
+                    scrubAnim.pause();
+                }
+                playPauseBtn.innerHTML = '<svg class="icon" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3" /></svg>';
+            }
+        });
+
+        //Timeline Scrub Handling
+        function updateScrubHandlePosition(){
+            if (video.duration) {
+                const progress = video.currentTime / video.duration;
+                gsap.set(scrubHandle, { x: progress * scrubBar.offsetWidth });
+            }
+        }
+
+        scrubBar.addEventListener('mousedown', (e) => {
+            isScrubbing = true;
+            scrubAnim?.pause(); // if its running pause
+
+        });
+
+        scrubBar.addEventListener('mousemove', (e) => {
+            if (!isScrubbing) return;
+            scrub(e);
+        });
+
+        scrubBar.addEventListener('mouseup', () => {
+            isScrubbing = false;
+            if (!video.paused && scrubAnim?.progress() < 1) {
+                scrubAnim?.play();
+            }
+        });
+        scrubBar.addEventListener('mouseleave', () => {
+            isScrubbing = false;
+            if (!video.paused  && scrubAnim?.progress() < 1) {
+                scrubAnim?.play();
+            }
+        });
+
+        function scrub(e) {
+            if (!video.duration) return; // avoid NaN calculation
+            const rect = scrubBar.getBoundingClientRect();
+            let scrubPosition = (e.clientX - rect.left) / rect.width;
+            scrubPosition = Math.max(0, Math.min(1, scrubPosition));
+
+            video.currentTime = scrubPosition * video.duration;
+            updateScrubHandlePosition()
+        }
+
+        video.addEventListener('loadedmetadata', () => {
+
+            scrubAnim = gsap.to(scrubHandle, {
+                x: '100%',
+                duration: video.duration,
+                ease:"none",
+                paused: true,
+                onUpdate: function() {
+                    updateScrubHandlePosition()
+                }
+            });
+            updateTimelineLabels();
+            createTimelineLabels();
+        });
+
+        video.addEventListener('timeupdate', () => {
+            if (!isScrubbing) {
+                updateScrubHandlePosition()
+            }
+
+        });
+
+        video.addEventListener('ended', () => {
+            scrubAnim.pause();
+        });
+
+        // Hover animations for buttons
+        document.querySelectorAll('.tool-btn, .control-btn').forEach(button => {
+            button.addEventListener('mouseenter', () => {
+                gsap.to(button, {
+                    scale: 1.1,
+                    duration: 0.3,
+                    ease: elasticEase
+                });
+            });
+
+            button.addEventListener('mouseleave', () => {
+                gsap.to(button, {
+                    scale: 1,
+                    duration: 0.3,
+                    ease: elasticEase
+                });
+            });
+        });
+
+        // Asset hover animations
+        document.querySelectorAll('.asset-container').forEach(assetContainer => {
+
+            assetContainer.addEventListener('mouseenter', () => {
+                gsap.to(assetContainer, {
+                    scale: 1.05,
+                    boxShadow: "0 5px 15px rgba(0,168,255,0.3)",
+                    duration: 0.3,
+                    ease: "power2.out"
+                });
+            });
+
+            assetContainer.addEventListener('mouseleave', () => {
+                gsap.to(assetContainer, {
+                    scale: 1,
+                    boxShadow: "none",
+                    duration: 0.3,
+                    ease: "power2.out"
+                });
+            });
+        });
+
+        // Mobile sidebar toggle
+        function toggleSidebar(index) {
+            const sidebars = document.querySelectorAll('.sidebar');
+            sidebars[index].classList.toggle('active');
+        }
+
+        // Add smooth scrolling to timeline
+        let isScrolling = false;
+        let startX;
+        let scrollLeft;
+
+        timelineTracksContainer.addEventListener('mousedown', (e) => {
+            isScrolling = true;
+            startX = e.pageX - timelineTracksContainer.offsetLeft;
+            scrollLeft = timelineTracksContainer.scrollLeft;
+        });
+
+        timelineTracksContainer.addEventListener('mouseleave', () => {
+            isScrolling = false;
+        });
+
+        timelineTracksContainer.addEventListener('mouseup', () => {
+            isScrolling = false;
+        });
+
+        timelineTracksContainer.addEventListener('mousemove', (e) => {
+            if (!isScrolling) return;
+            e.preventDefault();
+            const x = e.pageX - timelineTracksContainer.offsetLeft;
+            const walk = (x - startX) * 2;
+            timelineTracksContainer.scrollLeft = scrollLeft - walk;
+        });
+
+        // Waveform animation
+        function createWaveform() {
+            const waveform = document.getElementById('waveform');
+            const barCount = 50;
+
+            for (let i = 0; i < barCount; i++) {
+                const bar = document.createElement('div');
+                bar.className = 'waveform-bar';
+                waveform.appendChild(bar);
+            }
+
+            animateWaveform();
+        }
+
+        function animateWaveform() {
+            const bars = document.querySelectorAll('.waveform-bar');
+            bars.forEach(bar => {
+                const height = Math.random() * 100 + '%';
+                gsap.to(bar, {
+                    height: height,
+                    duration: 0.5,
+                    ease: "power1.inOut"
+                });
+            });
+
+            setTimeout(animateWaveform, 100);
+        }
+
+        createWaveform();
+
+       // Media Upload Handling
+        document.querySelectorAll('.asset-container').forEach((assetContainer, index) => {
+            const uploadBtn = assetContainer.querySelector('.asset-upload-btn');
+            const uploadInput = assetContainer.querySelector('.asset-upload-input');
+            let mediaElement; // define variable here
+            uploadBtn.addEventListener('click', () => {
+                uploadInput.click(); // Trigger the file input click
+            });
+
+            uploadInput.addEventListener('change', (event) => {
+                const file = event.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+
+                        // Check if preview image already exists
+                        const existingPreview = assetContainer.querySelector('.asset-preview');
+                        if (existingPreview) {
+                            existingPreview.remove(); // Remove old preview
+                        }
+
+                        if (file.type.startsWith('image')) {
+                            mediaElement = document.createElement('img');
+                            mediaElement.src = e.target.result;
+                            mediaElement.classList.add('asset-preview');
+                        } else if (file.type.startsWith('video')) {
+                            mediaElement = document.createElement('video');
+                            mediaElement.src = e.target.result;
+                            mediaElement.classList.add('asset-preview');
+                            mediaElement.controls = false; // Disable default video controls
+                        }
+
+                        if (mediaElement) {
+                            assetContainer.appendChild(mediaElement);
+                        }
+
+                        // Make asset draggable after loading
+                        makeAssetDraggable(assetContainer, mediaElement);
+                    };
+                    reader.readAsDataURL(file);
+                }
+            });
+
+             function makeAssetDraggable(assetContainer, mediaElement) {
+                    Draggable.create(assetContainer, {
+                        onDragStart: function () {
+                            gsap.to(this.target, {
+                                scale: 1.05,
+                                boxShadow: "0 5px 15px rgba(0,168,255,0.3)",
+                                duration: 0.3,
+                                ease:elasticEase
+                            });
+                        },
+                        onDragEnd: function(e) {
+                            gsap.to(this.target, {
+                                scale: 1,
+                                boxShadow: "none",
+                                duration: 0.3,
+                                ease:backEase
+                            });
+                            // Logic for placing into timeline
+                            const draggedElement = this.target;
+                            const timelineTracks = document.querySelectorAll('.track');
+                            timelineTracks.forEach(track => {
+                                if (isElementOverlapping(draggedElement, track)) {
+                                    createClipInTimeline(track, mediaElement, draggedElement);
+                                }
+                                track.classList.remove('drag-over');
+                            });
+                        }
+                    });
+                }
+        });
+
+        // Drag and Drop functionality for timeline
+        document.querySelectorAll('.track').forEach(track => {
+            track.addEventListener('dragover', (e) => {
+                e.preventDefault(); // Allow drop
+                track.classList.add('drag-over');
+
+            });
+
+            track.addEventListener('dragleave', () => {
+                track.classList.remove('drag-over');
+            });
+
+        });
+
+       // ----- Custom Markers Functionality  -----
+        const timelineTracks = document.getElementById('timeline-tracks');
+        timelineTracksContainer.addEventListener('click', function(event) {
+            const clickX = event.clientX - timelineTracksContainer.getBoundingClientRect().left;
+            const normalizedClickX = clickX / zoomLevel
+            createMarker(normalizedClickX, video.duration);
+        });
+
+        function createMarker(position, videoDuration) {
+            if (!videoDuration) return; // no video loaded avoid nan
+            const marker = document.createElement('div');
+            marker.classList.add('marker');
+            const markerLabel = document.createElement('div');
+            markerLabel.classList.add('marker-label');
+            // Calculate time based on the position of the marker
+            const time = (position/ timelineTracksContainer.offsetWidth ) * videoDuration;
+            const minutes = Math.floor(time / 60);
+            const seconds = Math.round(time % 60);
+            markerLabel.textContent = `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+            marker.appendChild(markerLabel);
+              marker.style.left = position + 'px';
+            timelineTracksContainer.appendChild(marker);
+
+
+             Draggable.create(marker, {
+                 type: "x",
+                 bounds: timelineTracksContainer,
+                 inertia: true,
+                 onDrag: function() {
+                       const time = (this.x/ timelineTracksContainer.offsetWidth ) * videoDuration;
+                       const minutes = Math.floor(time / 60);
+                       const seconds = Math.round(time % 60);
+                       markerLabel.textContent = `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+                 },
+                 snap: {
+                         x: function(endValue) {
+                            return Math.round(endValue / 10) * 10;
+                         }
+                    }
+             });
+
+        }
+        function updateTimelineLabels() {
+            timeLabelContainer.innerHTML = '';
+            createTimelineLabels(); // Re-create labels with updated zoom
+        }
+
+        function createTimelineLabels() {
+            const timelineWidth =  timelineTracksContainer.offsetWidth * zoomLevel
+            if (video.duration){
+                const numberOfLabels = Math.floor(timelineWidth / 100);
+                for(let i = 0; i <= numberOfLabels; i++){
+                    const timeLabel = document.createElement('div');
+                    timeLabel.classList.add('time-label');
+                    const time =  Math.round((video.duration / numberOfLabels) * i);
+
+                    const minutes = Math.floor(time / 60);
+                    const seconds =  Math.round(time % 60);
+                    timeLabel.textContent = `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+
+                    timeLabel.style.left = (timelineWidth / numberOfLabels )* i  + "px"
+                    timeLabelContainer.appendChild(timeLabel);
+                }
+            }
+        }
+          function createClipInTimeline(track, mediaElement, draggedElement) {
+            const clip = document.createElement('div');
+            clip.classList.add('clip');
+
+               // Add trim handles
+            const leftHandle = document.createElement('div');
+              leftHandle.classList.add('trim-handle', 'left');
+              clip.appendChild(leftHandle);
+             const rightHandle = document.createElement('div');
+              rightHandle.classList.add('trim-handle', 'right');
+             clip.appendChild(rightHandle);
+
+
+            // Calculate the starting position based on the x-position of the dragged element
+            const trackRect = track.getBoundingClientRect();
+            const draggedRect = draggedElement.getBoundingClientRect();
+            const relativeX = draggedRect.left - trackRect.left;
+            const trackWidth = trackRect.width;
+            let clipStartPercent = (relativeX / trackWidth) * 100;
+            // Ensure the clip starts at 0% and avoid having it start on a negative position
+            clipStartPercent = Math.max(0, Math.min(clipStartPercent, 100));
+
+            // Assign a default width if mediaElement width or duration is not available
+            let clipWidthPercent = 10;
+            if (mediaElement.tagName === 'VIDEO') {
+                clipWidthPercent = (mediaElement.duration / 10) * 100 ;
+                if (isNaN(clipWidthPercent) || clipWidthPercent <= 0) {
+                    clipWidthPercent = 10; // set to default width;
+                }
+            } else{
+                clipWidthPercent = 10;
+            }
+            // Ensure the clip doesn't extend beyond 100% of the track
+            clipWidthPercent = Math.min(clipWidthPercent, 100 - clipStartPercent)
+            clip.style.left = clipStartPercent + '%';
+            clip.style.width = clipWidthPercent + '%';
+
+               initClipTrimming(clip);
+              initClipDragging(clip);
+
+            track.appendChild(clip);
+            // Make the current dragged asset invisible when drop happens on timeline
+            draggedElement.style.opacity = '0';
+            setTimeout(() => {
+                draggedElement.style.opacity = '1';
+            }, 1000); // delay so that animation does not conflict with other animations
+        }
+
+
+        function isElementOverlapping(element1, element2) {
+            const rect1 = element1.getBoundingClientRect();
+            const rect2 = element2.getBoundingClientRect();
+            return !(rect1.right < rect2.left ||
+                rect1.left > rect2.right ||
+                rect1.bottom < rect2.top ||
+                rect1.top > rect2.bottom);
+        }
+
+        // -----  Clip Split Functionality ----
+        const splitClipBtn = document.querySelector('.timeline-controls [title="Split Clip"]');
+        splitClipBtn.addEventListener('click', () => {
+            splitSelectedClip()
+        });
+
+        function splitSelectedClip() {
+
+            const clips = document.querySelectorAll('.clip');
+
+            clips.forEach(clip => {
+                if (clip.classList.contains('selected')) {
+                    const track = clip.parentNode;
+                    const clipRect = clip.getBoundingClientRect();
+                    const trackRect = track.getBoundingClientRect();
+                    const relativeX = clipRect.left - trackRect.left;
+                    const trackWidth = trackRect.width;
+                    const splitPointPercent = (relativeX / trackWidth) * 100;
+                    const clipWidthPercent = (clipRect.width / trackWidth) *100;
+
+                    const newClip = document.createElement('div');
+                    newClip.classList.add('clip');
+
+                    // Add trim handles
+                    const leftHandle = document.createElement('div');
+                    leftHandle.classList.add('trim-handle', 'left');
+                      newClip.appendChild(leftHandle);
+                   const rightHandle = document.createElement('div');
+                    rightHandle.classList.add('trim-handle', 'right');
+                    newClip.appendChild(rightHandle);
+
+                    newClip.style.left = (relativeX / trackWidth) * 100 + '%';
+                    newClip.style.width = (clipRect.width / trackWidth) / 2 *100 + '%';
+                    newClip.style.pointerEvents = 'auto'
+
+                    initClipTrimming(newClip);
+                    initClipDragging(newClip);
+
+                    clip.style.width = (clipRect.width / trackWidth) / 2 *100 + '%';
+                    track.appendChild(newClip);
+                    clip.classList.remove('selected'); // Remove selection
+                } else {
+                    clip.classList.remove('selected'); // Remove selection
+                }
+            });
+        }
+
+        // Add clip selection logic
+        document.addEventListener('click', function(event) {
+            if (event.target.classList.contains('clip')) {
+                const clickedClip = event.target;
+                // Remove 'selected' class from all clips
+                document.querySelectorAll('.clip').forEach(clip => {
+                    clip.classList.remove('selected');
+                });
+                // Add 'selected' class to the clicked clip
+                clickedClip.classList.add('selected');
+            }
+        });
+    });
+</script>
+</body>
+  </html>
